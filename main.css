@@ -7,3 +7,7 @@ body {
   background-color: #FFFFFF;
   color: #18DDFF;
 }
+
+#canvas_layout {
+  border: 1px solid black;
+}
