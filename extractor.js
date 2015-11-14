@@ -57,7 +57,7 @@ var extractor = {
           z.push(aval & bval);
           break;
         case 'or':
-          z.push(zval | bval);
+          z.push(aval | bval);
       }
     }
     
@@ -85,7 +85,7 @@ var extractor = {
       while (cellsToCheck.length > 0) {
         curCell = cellsToCheck.pop();
         x = curCell.x;
-        y = curCell.y
+        y = curCell.y;
         i = y * w + x;
         if ((layer[i] === 1) && (checkedCells[i] !== 1)) {
           cellGroup.push(i);
