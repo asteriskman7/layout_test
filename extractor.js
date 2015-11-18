@@ -49,8 +49,8 @@ var extractor = {
     
     //layers.belowV0 = extractor.deriveLayer('or', extractor.deriveLayer('or', layoutData.layers.pwell, layoutData.layers.nwell), layoutData.layers.pc);
     
-    var pfets = extractor.extractLayerGroups(layers.pfetsLayer, layoutData.width, layoutData.height);
-    var nfets = extractor.extractLayerGroups(layers.nfetsLayer, layoutData.width, layoutData.height);
+    var pfets = extractor.extractLayerGroups(layers.pfetsLayer.data, layoutData.width, layoutData.height);
+    var nfets = extractor.extractLayerGroups(layers.nfetsLayer.data, layoutData.width, layoutData.height);
     
     var signalLayers = ['pw', 'nw', 'pc', 'm1', 'm2'];
     var layerGroups = {};
@@ -141,7 +141,6 @@ var extractor = {
                 }
               );
               
-              //nets[belowNet] = undefined;
               delete nets[belowNet];
             }
           }
@@ -152,8 +151,30 @@ var extractor = {
     debug = nets;
     
     //now connect the nets to each terminal of the pfets & nfets
+    var devices = [];
+    pfets.forEach(
+      function(pfet) {
+        var gateNet = cellNets.pc[pfet[0]];
+        var sourceNet = cellNets.pw[pfet[0]-1];
+        var drainNet = cellNets.pw[pfet[0]+1];
+        var device = {type: 'pfet', gateNet: gateNet, sourceNet: sourceNet, drainNet: drainNet};
+        devices.push(device);
+      }
+    );
     
-    return {pfets: pfets, nfets: nfets};
+    nfets.forEach(
+      function(nfet) {
+        var gateNet = cellNets.pc[nfet[0]];
+        var sourceNet = cellNets.nw[nfet[0]-1];
+        var drainNet = cellNets.nw[nfet[0]+1];
+        var device = {type: 'nfet', gateNet: gateNet, sourceNet: sourceNet, drainNet: drainNet};
+        devices.push(device);
+      }
+    );
+    
+    //return {pfets: pfets, nfets: nfets};
+    var netNames = Object.getOwnPropertyNames(nets);
+    return {devices: devices, nets: netNames};
     
   },
   
@@ -163,6 +184,8 @@ var extractor = {
     //maximum pw/nw area is something like 16
     //minimum pfetsLayer/nfetsLayer area is 4
     //pw and nw must neither overlap nor touch
+    //pfets must have at least 1 cell of pw across their entire left and right side
+    //nfets must have at least 1 cell of nw across their entire left and right side
     
     
     return {status: true, msg: 'designRuleCheck PASS'};
