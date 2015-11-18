@@ -1,5 +1,7 @@
 'use strict';
 
+var debug;
+
 var extractor = {
   extract: function(layoutData) {
     
@@ -21,7 +23,7 @@ var extractor = {
 // pwell and not pc => pw
 // nwell and not pc => nw
 // 
-// all active adjacent cells on a layer are connected, adjacent is nsew, not diagonal
+// all active adjacent cells on a layer are connected, adjacent is NSEW, not diagonal
 // 
 // foreach label in the design
 //   propagate the net via floodfill
@@ -36,21 +38,129 @@ var extractor = {
 // foreach pfet and nfet
 //   create device with appropriate connections
 
-    var pfetsLayer = extractor.deriveLayer('and', layoutData.layers.pc.data, layoutData.layers.pwell.data);
-    var nfetsLayer = extractor.deriveLayer('and', layoutData.layers.pc.data, layoutData.layers.nwell.data);
+    var layers = layoutData.layers;
+
+    layers.pfetsLayer = extractor.deriveLayer('and', layers.pc, layers.pwell);
+    layers.nfetsLayer = extractor.deriveLayer('and', layers.pc, layers.nwell);
     
-    var pfets = extractor.extractLayerGroups(pfetsLayer, layoutData.width, layoutData.height);
-    var nfets = extractor.extractLayerGroups(nfetsLayer, layoutData.width, layoutData.height);
+    layers.notPC = extractor.deriveLayer('not', layers.pc, layers.pc);
+    layers.pw = extractor.deriveLayer('and', layoutData.layers.pwell, layers.notPC);
+    layers.nw = extractor.deriveLayer('and', layoutData.layers.nwell, layers.notPC);
+    
+    //layers.belowV0 = extractor.deriveLayer('or', extractor.deriveLayer('or', layoutData.layers.pwell, layoutData.layers.nwell), layoutData.layers.pc);
+    
+    var pfets = extractor.extractLayerGroups(layers.pfetsLayer, layoutData.width, layoutData.height);
+    var nfets = extractor.extractLayerGroups(layers.nfetsLayer, layoutData.width, layoutData.height);
+    
+    var signalLayers = ['pw', 'nw', 'pc', 'm1', 'm2'];
+    var layerGroups = {};
+    //var nets = [];
+    var nextNetIndex = 0;
+    var nets = {};
+    var layerNets = {};
+    var cellNets = {};
+    
+    signalLayers.forEach(
+      function(layerName) {
+        var groups = extractor.extractLayerGroups(layers[layerName].data, layoutData.width, layoutData.height);
+        layerGroups[layerName] = groups;
+        cellNets[layerName] = [];
+        groups.forEach(
+          function(g) {
+            var netIndex;
+            netIndex = nextNetIndex;
+            ++nextNetIndex;
+            g.forEach(
+              function(cell) {
+                cellNets[layerName][cell] = netIndex;
+              }
+            );
+            //nets.push({groups: [{layer: layerName, cells: g}], name: '_net' + nets.length});
+            nets[netIndex] = [{layer: layerName, cells: g}];
+            if (layerNets[layerName] === undefined) {
+              layerNets[layerName] = [];
+            }
+            layerNets[layerName].push(netIndex);
+          }
+        );
+      }
+    );
+    
+    //now connect layers with vias.
+    var viaLayers = ['v0', 'v1'];
+    var viaConnections = {
+      v0: {above: ['m1'], below: ['pw', 'nw', 'pc']},
+      v1: {above: ['m2'], below: ['m1']}
+    };
+    var extractedVias = {};
+    viaLayers.forEach(
+      function(layerName) {
+        extractedVias[layerName] = extractor.extractLayerGroups(layers[layerName].data, layoutData.width, layoutData.height);
+      }
+    );
+
+    debug = cellNets;
+    
+    //for each via, find the net above and below, if they're not the same net name, make it so
+    viaLayers.forEach(
+      function(layerName) {
+        var vias = extractedVias[layerName];
+        vias.forEach(
+          function(viaCell) {
+            var aboveNet;
+            var belowNet;
+            var i;
+            console.log('via on layer ' + layerName + ' at cell ' + viaCell);
+            //check layers above
+            var aboveLayers = viaConnections[layerName].above;
+            //check all nets in the aboveLayer to see if they have the same cell as viaCell
+            for (i = 0; i < aboveLayers.length; i++) {
+              var aboveLayerName = aboveLayers[i]; 
+              var aboveLayerCellNets = cellNets[aboveLayerName];
+              aboveNet = aboveLayerCellNets[viaCell];
+              if (aboveNet !== undefined) {
+                console.log('via connects up to net ' + aboveNet);
+                break;
+              }  
+            }
+
+            //check layers below
+            var belowLayers = viaConnections[layerName].below;
+            for (i = 0; i < belowLayers.length; i++) {
+              var belowLayerName = belowLayers[i];
+              var belowLayerCellNets = cellNets[belowLayerName];
+              belowNet = belowLayerCellNets[viaCell];
+              if (belowNet !== undefined) {
+                console.log('via connects down to net ' + belowNet);
+                break;
+              }
+            }
+            
+            //join aboveNet and belowNet
+            
+          }
+        );
+      }
+    );
     
     return {pfets: pfets, nfets: nfets};
     
   },
   
   designRuleCheck: function(layoutData) {
+    //all PC must be only 1 unit wide
+    //all vias must have valid layer above and below
+    //maximum pw/nw area is something like 16
+    //minimum pfetsLayer/nfetsLayer area is 4
+    //pw and nw must neither overlap nor touch
+    
+    
     return {status: true, msg: 'designRuleCheck PASS'};
   },
     
   deriveLayer: function(op, a, b) {
+    a = a.data;
+    b = b.data;
     if (a.length != b.length) {
       throw 'both layers in deriveLayer must be the same length';
     }
@@ -74,7 +184,7 @@ var extractor = {
       }
     }
     
-    return z;
+    return {data: z, pins: []};
   },
   
   joinCells: function(layer, w, h, x, y, checkedCells) {
