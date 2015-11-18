@@ -54,10 +54,8 @@ var extractor = {
     
     var signalLayers = ['pw', 'nw', 'pc', 'm1', 'm2'];
     var layerGroups = {};
-    //var nets = [];
     var nextNetIndex = 0;
     var nets = {};
-    var layerNets = {};
     var cellNets = {};
     
     signalLayers.forEach(
@@ -74,13 +72,8 @@ var extractor = {
               function(cell) {
                 cellNets[layerName][cell] = netIndex;
               }
-            );
-            //nets.push({groups: [{layer: layerName, cells: g}], name: '_net' + nets.length});
+            );            
             nets[netIndex] = [{layer: layerName, cells: g}];
-            if (layerNets[layerName] === undefined) {
-              layerNets[layerName] = [];
-            }
-            layerNets[layerName].push(netIndex);
           }
         );
       }
@@ -99,8 +92,6 @@ var extractor = {
       }
     );
 
-    debug = cellNets;
-    
     //for each via, find the net above and below, if they're not the same net name, make it so
     viaLayers.forEach(
       function(layerName) {
@@ -110,7 +101,7 @@ var extractor = {
             var aboveNet;
             var belowNet;
             var i;
-            console.log('via on layer ' + layerName + ' at cell ' + viaCell);
+            //console.log('via on layer ' + layerName + ' at cell ' + viaCell);
             //check layers above
             var aboveLayers = viaConnections[layerName].above;
             //check all nets in the aboveLayer to see if they have the same cell as viaCell
@@ -119,7 +110,7 @@ var extractor = {
               var aboveLayerCellNets = cellNets[aboveLayerName];
               aboveNet = aboveLayerCellNets[viaCell];
               if (aboveNet !== undefined) {
-                console.log('via connects up to net ' + aboveNet);
+                //console.log('via connects up to net ' + aboveNet);
                 break;
               }  
             }
@@ -131,17 +122,36 @@ var extractor = {
               var belowLayerCellNets = cellNets[belowLayerName];
               belowNet = belowLayerCellNets[viaCell];
               if (belowNet !== undefined) {
-                console.log('via connects down to net ' + belowNet);
+                //console.log('via connects down to net ' + belowNet);
                 break;
               }
             }
             
             //join aboveNet and belowNet
-            
+            //move everything on belowNet to aboveNet
+            if (belowNet !== aboveNet) {
+              nets[belowNet].forEach(
+                function(netInfo) {
+                  netInfo.cells.forEach(
+                    function(cell) {
+                      cellNets[netInfo.layer][cell] = aboveNet;
+                    }
+                  );
+                  nets[aboveNet].push(netInfo);
+                }
+              );
+              
+              //nets[belowNet] = undefined;
+              delete nets[belowNet];
+            }
           }
         );
       }
     );
+    
+    debug = nets;
+    
+    //now connect the nets to each terminal of the pfets & nfets
     
     return {pfets: pfets, nfets: nfets};
     
