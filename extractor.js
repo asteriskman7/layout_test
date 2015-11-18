@@ -3,6 +3,12 @@
 var extractor = {
   extract: function(layoutData) {
     
+    var checkResult = extractor.designRuleCheck(layoutData);
+    console.log(checkResult.msg);
+    if (checkResult.status === false) {
+      return {};    
+    }
+    
     
 // vias only conduct in the Z direction
 // pc only vertical
@@ -30,13 +36,20 @@ var extractor = {
 // foreach pfet and nfet
 //   create device with appropriate connections
 
-    var pfets = extractor.deriveLayer('and', layoutData.layers.pc, layoutData.layers.pwell);
-    var nfets = extractor.deriveLayer('and', layoutData.layers.pc, layoutData.layers.nwell);
+    var pfetsLayer = extractor.deriveLayer('and', layoutData.layers.pc.data, layoutData.layers.pwell.data);
+    var nfetsLayer = extractor.deriveLayer('and', layoutData.layers.pc.data, layoutData.layers.nwell.data);
     
-    return {};
+    var pfets = extractor.extractLayerGroups(pfetsLayer, layoutData.width, layoutData.height);
+    var nfets = extractor.extractLayerGroups(nfetsLayer, layoutData.width, layoutData.height);
+    
+    return {pfets: pfets, nfets: nfets};
     
   },
   
+  designRuleCheck: function(layoutData) {
+    return {status: true, msg: 'designRuleCheck PASS'};
+  },
+    
   deriveLayer: function(op, a, b) {
     if (a.length != b.length) {
       throw 'both layers in deriveLayer must be the same length';
