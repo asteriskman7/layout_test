@@ -174,7 +174,8 @@ var extractor = {
     
     //return {pfets: pfets, nfets: nfets};
     var netNames = Object.getOwnPropertyNames(nets);
-    return {devices: devices, nets: netNames};
+    var design = {devices: devices, nets: netNames};
+    return design;
     
   },
   
