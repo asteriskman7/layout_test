@@ -1,6 +1,6 @@
 'use strict';
 
-/* globals extractor */
+/* globals extractor, simulator */
 
 console.log('init');
 
@@ -156,3 +156,5 @@ var selection = extractor.extractLayerGroups(layoutData.layers.m1.data, 20, 20);
 drawLayout(ctx, canvas.width, canvas.height, layoutData, []);
 
 document.getElementById('button_redraw').onclick = function() {drawLayout(ctx, canvas.width, canvas.height, layoutData, []);};
+
+simulator.init(design);
