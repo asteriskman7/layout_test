@@ -11,6 +11,7 @@ var simulator = {
   nextNetValues: undefined,
   devices: undefined,
   design: undefined,
+  tickCount: undefined,
   init: function(design) {
     //design={devices: devices, nets: netNames}
     //devices=array of {type: 'pfet'/'nfet', gateNet: gateNet, sourceNet: sourceNet, drainNet: drainNet}
@@ -25,6 +26,7 @@ var simulator = {
         simulator.nextNetValues[netName] = 'z';
       }
     );
+    simulator.tickCount = 0;
   },
   
   tick: function() {
@@ -36,9 +38,15 @@ var simulator = {
     );
     
     //apply top level pin forces
-    simulator.nextNetValues[7] = '0'; //gnd
-    simulator.nextNetValues[9] = '1'; //vdd
-    simulator.nextNetValues[6] = '1'; //a
+    simulator.curNetValues.vdd = '1';
+    simulator.curNetValues.gnd = '0';
+    simulator.curNetValues.d = (((simulator.tickCount % 16) > 7) + 0).toString();
+    simulator.curNetValues.c = (((simulator.tickCount % 8) > 3) + 0).toString();
+    simulator.curNetValues.b = (1 - ((simulator.tickCount % 8) > 3)).toString();
+    
+    if (simulator.tickCount === 13) {
+      var a = 1; //debug point
+    }
     
     simulator.devices.forEach(
       function(device) {
@@ -61,15 +69,11 @@ var simulator = {
                 simulator.nextNetValues[device.sourceNet] = source;
                 simulator.nextNetValues[device.drainNet] = drain;
               } else { //if source and drain are not the same there is more to do
-                if ((source !== 'z') && (drain !== 'z')) { //if they're different but neither z then there's a conflict
-                  simulator.nextNetValues[device.sourceNet] = 'x';
-                  simulator.nextNetValues[device.drainnet] = 'x';
-                } else { //set the z side to the non z side
-                  if (source === 'z') {
-                    simulator.nextNetValues[device.sourceNet] = drain;
-                  } else {
-                    simulator.nextNetValues[device.drainNet] = source;
-                  }
+                if (source === '1') {
+                  simulator.nextNetValues[device.drainNet] = '1';
+                }
+                if (drain === '1') {
+                  simulator.nextNetValues[device.sourceNet] = '1';
                 }
               }
             }
@@ -83,15 +87,11 @@ var simulator = {
                 simulator.nextNetValues[device.sourceNet] = source;
                 simulator.nextNetValues[device.drainNet] = drain;
               } else { //if source and drain are not the same there is more to do
-                if ((source !== 'z') && (drain !== 'z')) { //if they're different but neither z then there's a conflict
-                  simulator.nextNetValues[device.sourceNet] = 'x';
-                  simulator.nextNetValues[device.drainnet] = 'x';
-                } else { //set the z side to the non z side
-                  if (source === 'z') {
-                    simulator.nextNetValues[device.sourceNet] = drain;
-                  } else {
-                    simulator.nextNetValues[device.drainNet] = source;
-                  }
+                if (source === '0') {
+                  simulator.nextNetValues[device.drainNet] = '0';
+                }
+                if (drain === '0') {
+                  simulator.nextNetValues[device.sourceNet] = '0';
                 }
               }
             }
@@ -100,8 +100,14 @@ var simulator = {
             throw 'ERROR: device type ' + device.type + ' is not implemented';
         }
       }      
-    );
+    );    
     
     simulator.curNetValues = simulator.nextNetValues;
+    simulator.curNetValues.vdd = '1';
+    simulator.curNetValues.gnd = '0';
+    simulator.curNetValues.d = (((simulator.tickCount % 16) > 7) + 0).toString();
+    simulator.curNetValues.c = (((simulator.tickCount % 8) > 3) + 0).toString();
+    simulator.curNetValues.b = (1 - ((simulator.tickCount % 8) > 3)).toString();
+    simulator.tickCount += 1;
   }
 };

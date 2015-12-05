@@ -157,4 +157,19 @@ drawLayout(ctx, canvas.width, canvas.height, layoutData, []);
 
 document.getElementById('button_redraw').onclick = function() {drawLayout(ctx, canvas.width, canvas.height, layoutData, []);};
 
+design = {
+devices: [
+  {type: 'nfet', gateNet: 'c', sourceNet: 'd', drainNet: '1'}, //first passgate nfet
+  {type: 'pfet', gateNet: 'b', sourceNet: 'd', drainNet: '1'}, //first passgate pfet
+  {type: 'pfet', gateNet: '1', sourceNet: 'vdd', drainNet: '4'}, //first invp
+  {type: 'nfet', gateNet: '1', sourceNet: 'gnd', drainNet: '4'}, //first invn
+  {type: 'pfet', gateNet: '4', sourceNet: 'vdd', drainNet: 'q'}, //second invp
+  {type: 'nfet', gateNet: '4', sourceNet: 'gnd', drainNet: 'q'}, //second invn
+  {type: 'pfet', gateNet: 'c', sourceNet: 'q', drainNet: '1'}, //second passgate
+  {type: 'nfet', gateNet: 'b', sourceNet: 'q', drainNet: '1'}
+
+],
+nets: ['d', 'c', 'b', '1', 'q', '4', 'vdd', 'gnd']
+};
+
 simulator.init(design);
