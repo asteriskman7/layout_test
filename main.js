@@ -157,7 +157,9 @@ drawLayout(ctx, canvas.width, canvas.height, layoutData, []);
 
 document.getElementById('button_redraw').onclick = function() {drawLayout(ctx, canvas.width, canvas.height, layoutData, []);};
 
-design = {
+
+// latch
+var designL = {
 devices: [
   {type: 'nfet', gateNet: 'c', sourceNet: 'd', drainNet: '1'}, //first passgate nfet
   {type: 'pfet', gateNet: 'b', sourceNet: 'd', drainNet: '1'}, //first passgate pfet
@@ -172,4 +174,27 @@ devices: [
 nets: ['d', 'c', 'b', '1', 'q', '4', 'vdd', 'gnd']
 };
 
-simulator.init(design);
+
+//nand
+//abz
+//001
+//011
+//101
+//110
+//parallel pfets to vdd
+//series nfets to gnd
+var aval = 0;
+var bval = 0;
+var cval = 0;
+var dval = 0;
+var designN = {
+devices: [
+  {type: 'pfet', gateNet: 'a', sourceNet: 'vdd', drainNet: 'z'},
+  {type: 'pfet', gateNet: 'b', sourceNet: 'vdd', drainNet: 'z'},
+  {type: 'nfet', gateNet: 'a', sourceNet: 'gnd', drainNet: 'ad'},
+  {type: 'nfet', gateNet: 'b', sourceNet: 'ad', drainNet: 'z'}
+],
+nets: ['a', 'b', 'z', 'ad', 'vdd', 'gnd']
+};
+
+simulator.init(designN);
