@@ -47,22 +47,19 @@ var simulator = {
     simulator.curNetValues.gnd = 0;
     simulator.curNetStrength.vdd = 1;
     simulator.curNetStrength.gnd = 1;
-    //simulator.curNetStrength.d = 1;
-    //simulator.curNetStrength.c = 1;
-    //simulator.curNetStrength.b = 1;
+    simulator.curNetStrength.d = 1;
+    simulator.curNetStrength.c = 1;
+    simulator.curNetStrength.b = 1;
     //simulator.curNetValues.d = (((simulator.tickCount % 16) > 7) + 0).toString();
     //simulator.curNetValues.c = (((simulator.tickCount % 8) > 3) + 0).toString();
     //simulator.curNetValues.b = (1 - ((simulator.tickCount % 8) > 3)).toString();
-    //simulator.curNetValues.c = cval;
-    //simulator.curNetValues.b = (1-parseInt(cval)).toString();
-    //simulator.curNetValues.d = dval;
     simulator.curNetValues.a = aval;
     simulator.curNetValues.b = bval;    
     simulator.curNetStrength.a = 1;
     simulator.curNetStrength.b = 1;
-    //simulator.curNetValues.d = dval;
-    //simulator.curNetValues.c = cval;
-    //simulator.curNetValues.b = 1-cval;
+    simulator.curNetValues.d = dval;
+    simulator.curNetValues.c = cval;
+    simulator.curNetValues.b = 1-cval;
     
     if (simulator.tickCount === 13) {
       var a = 1; //debug point
@@ -104,7 +101,7 @@ var simulator = {
             gate   = simulator.curNetValues[device.gateNet];
             source = simulator.curNetValues[device.sourceNet]*0.9;
             drain  = simulator.curNetValues[device.drainNet]*0.9;
-            if (gate >= 5) { //if the gate isn't 1 then the device isn't on
+            if (gate >= 0.5) { //if the gate isn't 1 then the device isn't on
               //if (source === drain) { //if current source and drain are the same, set their next values to be the same also
               //  simulator.nextNetValues[device.sourceNet] = source;
               //  simulator.nextNetValues[device.drainNet] = drain;
@@ -153,14 +150,11 @@ var simulator = {
     //simulator.curNetValues.d = (((simulator.tickCount % 16) > 7) + 0).toString();
     //simulator.curNetValues.c = (((simulator.tickCount % 8) > 3) + 0).toString();
     //simulator.curNetValues.b = (1 - ((simulator.tickCount % 8) > 3)).toString();
-    //simulator.curNetValues.c = cval;
-    //simulator.curNetValues.b = (1-parseInt(cval)).toString();
-    //simulator.curNetValues.d = dval;
     simulator.curNetValues.a = aval;
     simulator.curNetValues.b = bval;
-    //simulator.curNetValues.d = dval;
-    //simulator.curNetValues.c = cval;
-    //simulator.curNetValues.b = 1-cval;
+    simulator.curNetValues.d = dval;
+    simulator.curNetValues.c = cval;
+    simulator.curNetValues.b = 1-cval;
     simulator.tickCount += 1;
   }
 };
