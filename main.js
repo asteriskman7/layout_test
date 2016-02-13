@@ -5,7 +5,7 @@
 console.log('init');
 
 function getLayoutData() {
-  return {
+  var layout = {
     width: 9,
     height: 19,
     layers: {
@@ -18,6 +18,7 @@ function getLayoutData() {
       m2:    {data: [1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0], pins: [{name: 'vdd', x: 1, y: 0}]}
     }
   };
+  return resizeAllLayers(layout, 33, 33);
 }
 
 function resizeLayer(layer, oldW, oldH, newW, newH) {
@@ -55,6 +56,8 @@ function drawLayout(ctx, canvasW, canvasH, layoutData, selection) {
   var gridHeight = Math.floor(canvasH / gridSize);
   console.log('drawing layout');
   ctx.clearRect(0, 0, canvasW, canvasH);
+  ctx.save();
+  ctx.translate(300,0);
   ctx.save();
   ctx.translate(-gridSize *  gridOriginX, -gridSize * gridOriginY);
   //draw layers
@@ -108,6 +111,36 @@ function drawLayout(ctx, canvasW, canvasH, layoutData, selection) {
     }
   );
   
+  for (var net in design.netCells) {
+    var netValue = simulator.curNetValues[net];
+    console.log('display net ' + net + ' as ' + netValue);
+    var netCells = design.netCells[net];
+    netCells.forEach(
+      function(l) {
+        l.cells.forEach(
+          function(c) {
+            //console.log('cell ' + c + ' is value ' + netValue);
+            var t;
+            if (netValue > 0.5) {
+              ctx.fillStyle = 'rgba(0,255,0,1)';
+              t = '+';
+            } else {
+              ctx.fillStyle = 'rgba(255,0,0,1)';
+              t = '-';
+            }
+
+            var x = c % gridWidth;
+            var y = Math.floor(c / gridWidth);
+            //ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+            ctx.textAlign = 'center';
+            ctx.fillText(t, x * gridSize + gridSize * 0.5, y * gridSize + gridSize * 0.5);
+          }
+        );
+      }
+    );
+    
+  }
+  
   var selectedIndex;
   var x;
   var y;
@@ -140,6 +173,7 @@ function drawLayout(ctx, canvasW, canvasH, layoutData, selection) {
     ctx.stroke();
   }
   ctx.restore();
+  ctx.restore();
 }
 
 
@@ -147,15 +181,15 @@ function drawLayout(ctx, canvasW, canvasH, layoutData, selection) {
 var canvas = document.getElementById('canvas_layout');
 var ctx = canvas.getContext('2d');
 
-var layoutData = resizeAllLayers(getLayoutData(), 20, 20);
+var layoutData = resizeAllLayers(getLayoutData(), 33, 33);
 
 var design = extractor.extract(layoutData);
 
-var selection = extractor.extractLayerGroups(layoutData.layers.m1.data, 20, 20);
+var selection = extractor.extractLayerGroups(layoutData.layers.m1.data, 33, 33);
 
-drawLayout(ctx, canvas.width, canvas.height, layoutData, []);
 
-document.getElementById('button_redraw').onclick = function() {drawLayout(ctx, canvas.width, canvas.height, layoutData, []);};
+
+document.getElementById('button_redraw').onclick = function() {drawLayout(ctx, 500, 500, layoutData, []);};
 
 
 // latch
@@ -172,6 +206,25 @@ devices: [
 
 ],
 nets: ['d', 'c', 'b', '1', 'q', '4', 'vdd', 'gnd']
+};
+
+var designL2 = {
+devices: [
+  {type: 'nfet', gateNet: 'db', sourceNet: 'dbb', drainNet: 'gnd'}, //second d inverter nfet
+  {type: 'pfet', gateNet: 'db', sourceNet: 'dbb', drainNet: 'vdd'}, //second d inverter pfet
+  {type: 'nfet', gateNet: 'd', sourceNet: 'db', drainNet: 'gnd'}, //first d inverter nfet
+  {type: 'pfet', gateNet: 'd', sourceNet: 'db', drainNet: 'vdd'}, //first d inverter nfet
+  {type: 'nfet', gateNet: 'c', sourceNet: 'dbb', drainNet: '1'}, //first passgate nfet
+  {type: 'pfet', gateNet: 'b', sourceNet: 'dbb', drainNet: '1'}, //first passgate pfet
+  {type: 'pfet', gateNet: '1', sourceNet: 'vdd', drainNet: '4'}, //first invp
+  {type: 'nfet', gateNet: '1', sourceNet: 'gnd', drainNet: '4'}, //first invn
+  {type: 'pfet', gateNet: '4', sourceNet: 'vdd', drainNet: 'q'}, //second invp
+  {type: 'nfet', gateNet: '4', sourceNet: 'gnd', drainNet: 'q'}, //second invn
+  {type: 'pfet', gateNet: 'c', sourceNet: 'q', drainNet: '1'}, //second passgate
+  {type: 'nfet', gateNet: 'b', sourceNet: 'q', drainNet: '1'}
+
+],
+nets: ['d', 'db', 'dbb', 'c', 'b', '1', 'q', '4', 'vdd', 'gnd']
 };
 
 
@@ -197,4 +250,28 @@ devices: [
 nets: ['a', 'b', 'z', 'ad', 'vdd', 'gnd']
 };
 
-simulator.init(designN);
+var designN2 = {
+devices: [
+  {type: 'pfet', gateNet: 'a', sourceNet: 'vdd', drainNet: 'z'},
+  {type: 'pfet', gateNet: 'b', sourceNet: 'vdd', drainNet: 'z'},
+  {type: 'pfet', gateNet: 'c', sourceNet: 'vdd', drainNet: 'z'},
+  {type: 'nfet', gateNet: 'a', sourceNet: 'gnd', drainNet: 'ad'},
+  {type: 'nfet', gateNet: 'b', sourceNet: 'ad', drainNet: 'bd'},
+  {type: 'nfet', gateNet: 'c', sourceNet: 'bd', drainNet: 'z'}
+],
+nets: ['a', 'b', 'c', 'z', 'ad', 'bd', 'vdd', 'gnd']
+};
+
+var designP = {
+devices: [
+  {type: 'pfet',  gateNet: 'a', sourceNet: 'vdd', drainNet: 'z'},
+  {type: 'nfet',  gateNet: 'b', sourceNet: 'gnd', drainNet: 'z'} 
+],
+nets: ['a', 'b', 'vdd', 'gnd', 'z']
+};
+
+simulator.init(design);
+simulator.tick();
+
+//drawLayout(ctx, canvas.width, canvas.height, layoutData, []);
+drawLayout(ctx, 500, 500, layoutData, []);
