@@ -31,6 +31,14 @@ var simulator = {
     simulator.tickCount = 0;
   },
   
+  printNetVals: function() {
+    simulator.design.nets.forEach(
+      function(netName) {
+        console.log(netName + '=' + simulator.curNetValues[netName]);  
+      }
+    );
+  },
+  
   tick: function() {
     simulator.nextNetValues = {};
     simulator.nextNetDrivers = {};
@@ -59,7 +67,13 @@ var simulator = {
     simulator.curNetStrength.b = 1;
     simulator.curNetValues.d = dval;
     simulator.curNetValues.c = cval;
-    simulator.curNetValues.b = 1-cval;
+    //simulator.curNetValues.b = 1-cval;
+    simulator.curNetValues[6] = aval;
+    simulator.curNetStrength[6] = 1;
+    simulator.curNetValues[9] = 1;
+    simulator.curNetStrength[9] = 1;
+    simulator.curNetValues[7] = 0;
+    simulator.curNetStrength[7] = 1;
     
     if (simulator.tickCount === 13) {
       var a = 1; //debug point
@@ -154,7 +168,10 @@ var simulator = {
     simulator.curNetValues.b = bval;
     simulator.curNetValues.d = dval;
     simulator.curNetValues.c = cval;
-    simulator.curNetValues.b = 1-cval;
+    simulator.curNetValues[6] = aval;
+    simulator.curNetValues[9] = 1;
+    simulator.curNetValues[7] = 0;
+    //simulator.curNetValues.b = 1-cval;
     simulator.tickCount += 1;
   }
 };
