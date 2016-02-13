@@ -4,6 +4,7 @@ var debug;
 
 var extractor = {
   extract: function(layoutData) {
+    console.log('extracting ' + layoutData.width + ' x ' + layoutData.height);
     
     var checkResult = extractor.designRuleCheck(layoutData);
     console.log(checkResult.msg);
@@ -16,10 +17,12 @@ var extractor = {
 // pc only vertical
 // m1/m2 any direction
 // pfets/nfets must have minimum width. must have length of 1
+// fets must have the same well on both sides
+// nwell must not touch pwell
 // 
 // make derived layers:
 // pc and pwell => pfet
-// pc and nwel => nfet
+// pc and nwell => nfet
 // pwell and not pc => pw
 // nwell and not pc => nw
 // 
@@ -174,7 +177,7 @@ var extractor = {
     
     //return {pfets: pfets, nfets: nfets};
     var netNames = Object.getOwnPropertyNames(nets);
-    var design = {devices: devices, nets: netNames};
+    var design = {devices: devices, nets: netNames, netCells: nets};
     return design;
     
   },
