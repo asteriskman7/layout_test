@@ -6,6 +6,8 @@
 //8 => Z
 //9 => vdd
 
+/* globals aval, bval, cval, dval */
+
 var simulator = {
   curNetValues: undefined,
   nextNetValues: undefined,

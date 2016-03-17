@@ -1,17 +1,40 @@
 'use strict';
 
+/* globals ClipperLib, fabric */
+
+
 var debug;
 
 var extractor = {
-  extract: function(layoutData) {
-    console.log('extracting ' + layoutData.width + ' x ' + layoutData.height);
+  extract: function(shapesData) {
+    /*
+      shapesData = {
+        layers: {
+          layer1: [{left: 0, top: 0, width: 1, height: 1}, {left: 2, top: 2, width: 2, height: 2}],
+          layer2: [],
+          layer3: []
+        }
+      }
+    */
     
-    var checkResult = extractor.designRuleCheck(layoutData);
+    //console.log('extracting ' + layoutData.width + ' x ' + layoutData.height);
+    console.log('extracting from shapes');
+    
+    var layers = {};
+    
+    //convert all rect info to polygons
+    for (var layerName in shapesData.layers) {
+      layers[layerName] = extractor.rectsToPolygons(shapesData.layers[layerName]);
+    }
+    
+    //todo: combine all polygons on a layer for each layer
+    
+    var checkResult = extractor.designRuleCheck(layers);
     console.log(checkResult.msg);
     if (checkResult.status === false) {
       return {};    
     }
-    
+    //https://sourceforge.net/projects/jsclipper/
     
 // vias only conduct in the Z direction
 // pc only vertical
@@ -41,19 +64,24 @@ var extractor = {
 // foreach pfet and nfet
 //   create device with appropriate connections
 
-    var layers = layoutData.layers;
-
-    layers.pfetsLayer = extractor.deriveLayer('and', layers.pc, layers.pwell);
-    layers.nfetsLayer = extractor.deriveLayer('and', layers.pc, layers.nwell);
+    layers.pfetsLayer = extractor.deriveLayer('intersection', layers.pc, layers.pwell);
+    layers.nfetsLayer = extractor.deriveLayer('intersection', layers.pc, layers.nwell);
     
-    layers.notPC = extractor.deriveLayer('not', layers.pc, layers.pc);
-    layers.pw = extractor.deriveLayer('and', layoutData.layers.pwell, layers.notPC);
-    layers.nw = extractor.deriveLayer('and', layoutData.layers.nwell, layers.notPC);
+    //layers.notPC = extractor.deriveLayer('not', layers.pc, layers.pc);
+    layers.pw = extractor.deriveLayer('difference', layers.pwell, layers.pc);
+    layers.nw = extractor.deriveLayer('difference', layers.nwell, layers.pc);
+    
+    
     
     //layers.belowV0 = extractor.deriveLayer('or', extractor.deriveLayer('or', layoutData.layers.pwell, layoutData.layers.nwell), layoutData.layers.pc);
     
-    var pfets = extractor.extractLayerGroups(layers.pfetsLayer.data, layoutData.width, layoutData.height);
-    var nfets = extractor.extractLayerGroups(layers.nfetsLayer.data, layoutData.width, layoutData.height);
+    extractor.polygonsToCanvas(layers.pfetsLayer, window.fjscanvas);
+    
+    //pfets and nfets are the pfetsLayer and nfetsLayer
+    //var pfets = extractor.extractLayerGroups(layers.pfetsLayer.data, layoutData.width, layoutData.height);
+    //var nfets = extractor.extractLayerGroups(layers.nfetsLayer.data, layoutData.width, layoutData.height);
+    
+    
     
     var signalLayers = ['pw', 'nw', 'pc', 'm1', 'm2'];
     var layerGroups = {};
@@ -63,22 +91,20 @@ var extractor = {
     
     signalLayers.forEach(
       function(layerName) {
-        var groups = extractor.extractLayerGroups(layers[layerName].data, layoutData.width, layoutData.height);
-        layerGroups[layerName] = groups;
+        var groups = layers[layerName];
+        //var groups = extractor.extractLayerGroups(layers[layerName].data, layoutData.width, layoutData.height);
+        //layerGroups[layerName] = groups;
         cellNets[layerName] = [];
-        groups.forEach(
-          function(g) {
-            var netIndex;
-            netIndex = nextNetIndex;
-            ++nextNetIndex;
-            g.forEach(
-              function(cell) {
-                cellNets[layerName][cell] = netIndex;
-              }
-            );            
-            nets[netIndex] = [{layer: layerName, cells: g}];
-          }
-        );
+        var groupNumber = 0;
+        groups.forEach(function(g) {
+          var netIndex;
+          netIndex = nextNetIndex;
+          ++nextNetIndex;
+          //the groupNumber'th group on layer layerName is net netIndex
+          cellNets[layerName][groupNumber] = netIndex;          
+          nets[netIndex] = [{layer: layerName, groupNumber: groupNumber}];
+          groupNumber++;           
+        });
       }
     );
     
@@ -88,92 +114,158 @@ var extractor = {
       v0: {above: ['m1'], below: ['pw', 'nw', 'pc']},
       v1: {above: ['m2'], below: ['m1']}
     };
-    var extractedVias = {};
-    viaLayers.forEach(
-      function(layerName) {
-        extractedVias[layerName] = extractor.extractLayerGroups(layers[layerName].data, layoutData.width, layoutData.height);
-      }
-    );
+    //var extractedVias = {};
+    //viaLayers.forEach(
+    //  function(layerName) {
+    //    extractedVias[layerName] = extractor.extractLayerGroups(layers[layerName].data, layoutData.width, layoutData.height);
+    //  }
+    //);
 
+    //todo: apply pin names and make sure they are sticky
     //for each via, find the net above and below, if they're not the same net name, make it so
-    viaLayers.forEach(
-      function(layerName) {
-        var vias = extractedVias[layerName];
-        vias.forEach(
-          function(viaCell) {
-            var aboveNet;
-            var belowNet;
-            var i;
-            //console.log('via on layer ' + layerName + ' at cell ' + viaCell);
-            //check layers above
-            var aboveLayers = viaConnections[layerName].above;
-            //check all nets in the aboveLayer to see if they have the same cell as viaCell
-            for (i = 0; i < aboveLayers.length; i++) {
-              var aboveLayerName = aboveLayers[i]; 
-              var aboveLayerCellNets = cellNets[aboveLayerName];
-              aboveNet = aboveLayerCellNets[viaCell];
-              if (aboveNet !== undefined) {
-                //console.log('via connects up to net ' + aboveNet);
-                break;
-              }  
-            }
-
-            //check layers below
-            var belowLayers = viaConnections[layerName].below;
-            for (i = 0; i < belowLayers.length; i++) {
-              var belowLayerName = belowLayers[i];
-              var belowLayerCellNets = cellNets[belowLayerName];
-              belowNet = belowLayerCellNets[viaCell];
-              if (belowNet !== undefined) {
-                //console.log('via connects down to net ' + belowNet);
-                break;
-              }
-            }
-            
-            //join aboveNet and belowNet
-            //move everything on belowNet to aboveNet
-            if (belowNet !== aboveNet) {
-              nets[belowNet].forEach(
-                function(netInfo) {
-                  netInfo.cells.forEach(
-                    function(cell) {
-                      cellNets[netInfo.layer][cell] = aboveNet;
-                    }
-                  );
-                  nets[aboveNet].push(netInfo);
-                }
-              );
-              
-              delete nets[belowNet];
+    viaLayers.forEach(function(layerName) {
+      var vias = layers[layerName];
+      vias.forEach(function(viaPoly) {
+        var aboveNet;
+        var belowNet;
+        var i;
+        var groupNumber;
+        //console.log('via on layer ' + layerName + ' at cell ' + viaCell);
+        //check layers above
+        var aboveLayers = viaConnections[layerName].above;
+        //check all nets in the aboveLayer to see if they have the same cell as viaCell
+        for (i = 0; i < aboveLayers.length; i++) {
+          var aboveLayerName = aboveLayers[i];
+          var abovePolys = layers[aboveLayerName];
+          for (groupNumber = 0; groupNumber < abovePolys.length; groupNumber++) {
+            var abovePoly = abovePolys[groupNumber];
+            if (extractor.deriveLayer('intersection', [viaPoly], [abovePoly]).length !== 0) {
+              aboveNet = cellNets[aboveLayerName][groupNumber];
+              break;
             }
           }
-        );
-      }
-    );
-    
-    debug = nets;
+          if (aboveNet !== undefined) {
+            break;
+          }
+        }
+
+        //check layers below
+        var belowLayers = viaConnections[layerName].below;        
+        for (i = 0; i < belowLayers.length; i++) {
+          var belowLayerName = belowLayers[i];
+          var belowPolys = layers[belowLayerName];
+          for (groupNumber = 0; groupNumber < belowPolys.length; groupNumber++) {
+            var belowPoly = belowPolys[groupNumber];
+            if (extractor.deriveLayer('intersection', [viaPoly], [belowPoly]).length !== 0) {
+              belowNet = cellNets[belowLayerName][groupNumber];
+              break;
+            }            
+          }  
+          if (belowNet !== undefined) {
+            break;
+          }
+        }
+        
+        //join aboveNet and belowNet
+        //move everything on belowNet to aboveNet
+        if (belowNet !== aboveNet) {
+          //set all the nets that are equal to belowNet to aboveNet
+          var belowNetList = nets[belowNet];
+          var aboveNetList = nets[aboveNet];
+          //foreach belowNet we have to set cellNets[belowLayerName][groupNumber] to be aboveNet
+          belowNetList.forEach(function(n){
+            //n={layer: layerName, groupNumber: groupNumber}
+            cellNets[n.layer][n.groupNumber] = aboveNet;
+          });
+          
+          nets[aboveNet] = aboveNetList.concat(belowNetList);
+          delete nets[belowNet];
+        }
+        
+      });
+    });
     
     //now connect the nets to each terminal of the pfets & nfets
     var devices = [];
-    pfets.forEach(
-      function(pfet) {
-        var gateNet = cellNets.pc[pfet[0]];
-        var sourceNet = cellNets.pw[pfet[0]-1];
-        var drainNet = cellNets.pw[pfet[0]+1];
-        var device = {type: 'pfet', gateNet: gateNet, sourceNet: sourceNet, drainNet: drainNet};
-        devices.push(device);
+    var gateNet;
+    var sourceNet;
+    var drainNet;
+    var fetIndex;
+    var pcIndex;
+    var pwIndex;
+    var nwIndex;
+    var pwPoly;
+    var nwPoly;
+    var pcPoly;
+    var device;
+    for (fetIndex = 0; fetIndex < layers.pfetsLayer.length; fetIndex++) {
+      //gateNet = the net of the pc that is overlapping with this pfetsLayer shape
+      var pfetPoly = layers.pfetsLayer[fetIndex];
+      for (pcIndex = 0; pcIndex < layers.pc.length; pcIndex++) {
+        pcPoly = layers.pc[pcIndex];
+        if (extractor.deriveLayer('intersection', [pfetPoly], [pcPoly]).length !== 0) {
+          gateNet = cellNets.pc[pcIndex];
+          break;
+        }
       }
-    );
+
+      //sourceNet = the net of the pw shape to the left of this pfetsLayer shape
+      var leftPfet = extractor.translatePoly(pfetPoly, -1, 0);
+      for (pwIndex = 0; pwIndex < layers.pw.length; pwIndex++) {
+        pwPoly = layers.pw[pwIndex];
+        if (extractor.deriveLayer('intersection', [leftPfet], [pwPoly]).length !== 0) {
+          sourceNet = cellNets.pw[pwIndex];
+          break;
+        }
+      }
+      
+      //drainNet = the net of the pw shape to the right of this pfetsLayer shape
+      var rightPfet = extractor.translatePoly(pfetPoly, 1, 0);
+      for (pwIndex = 0; pwIndex < layers.pw.length; pwIndex++) {
+        pwPoly = layers.pw[pwIndex];
+        if (extractor.deriveLayer('intersection', [rightPfet], [pwPoly]).length !== 0) {
+          drainNet = cellNets.pw[pwIndex];
+          break;
+        }
+      }
+      
+      device = {type: 'pfet', gateNet: gateNet, sourceNet: sourceNet, drainNet: drainNet};
+      devices.push(device);
+    }
     
-    nfets.forEach(
-      function(nfet) {
-        var gateNet = cellNets.pc[nfet[0]];
-        var sourceNet = cellNets.nw[nfet[0]-1];
-        var drainNet = cellNets.nw[nfet[0]+1];
-        var device = {type: 'nfet', gateNet: gateNet, sourceNet: sourceNet, drainNet: drainNet};
-        devices.push(device);
+    for (fetIndex = 0; fetIndex < layers.nfetsLayer.length; fetIndex++) {
+      //gateNet = the net of the pc that is overlapping with this nfetsLayer shape
+      var nfetPoly = layers.nfetsLayer[fetIndex];
+      for (pcIndex = 0; pcIndex < layers.pc.length; pcIndex++) {
+        pcPoly = layers.pc[pcIndex];
+        if (extractor.deriveLayer('intersection', [nfetPoly], [pcPoly]).length !== 0) {
+          gateNet = cellNets.pc[pcIndex];
+          break;
+        }
       }
-    );
+
+      //sourceNet = the net of the nw shape to the left of this nfetsLayer shape
+      var leftNfet = extractor.translatePoly(nfetPoly, -1, 0);
+      for (nwIndex = 0; nwIndex < layers.nw.length; nwIndex++) {
+        nwPoly = layers.nw[nwIndex];
+        if (extractor.deriveLayer('intersection', [leftNfet], [nwPoly]).length !== 0) {
+          sourceNet = cellNets.nw[nwIndex];
+          break;
+        }
+      }
+      
+      //drainNet = the net of the nw shape to the right of this nfetsLayer shape
+      var rightNfet = extractor.translatePoly(nfetPoly, 1, 0);
+      for (nwIndex = 0; nwIndex < layers.nw.length; nwIndex++) {
+        nwPoly = layers.nw[nwIndex];
+        if (extractor.deriveLayer('intersection', [rightNfet], [nwPoly]).length !== 0) {
+          drainNet = cellNets.nw[nwIndex];
+          break;
+        }
+      }
+      device = {type: 'nfet', gateNet: gateNet, sourceNet: sourceNet, drainNet: drainNet};
+      devices.push(device);
+    }
     
     //return {pfets: pfets, nfets: nfets};
     var netNames = Object.getOwnPropertyNames(nets);
@@ -182,7 +274,7 @@ var extractor = {
     
   },
   
-  designRuleCheck: function(layoutData) {
+  designRuleCheck: function(shapesData) {
     //all PC must be only 1 unit wide
     //all vias must have valid layer above and below
     //maximum pw/nw area is something like 16
@@ -194,34 +286,37 @@ var extractor = {
     
     return {status: true, msg: 'designRuleCheck PASS'};
   },
+  
+  rectsToPolygons: function(rects) {
+    var polygons = rects.map(function(r) {
+      var p = [
+        {X: r.left, Y: r.top},
+        {X: r.left + r.width, Y: r.top},
+        {X: r.left + r.width, Y: r.top + r.height},
+        {X: r.left, Y: r.top + r.height}
+      ];
+      return p;
+    });
+    return polygons;
+  },
     
-  deriveLayer: function(op, a, b) {
-    a = a.data;
-    b = b.data;
-    if (a.length != b.length) {
-      throw 'both layers in deriveLayer must be the same length';
-    }
+  deriveLayer: function(op, subj, clip) {
+    var cpr = new ClipperLib.Clipper();    
     
-    var z = [];
-    var aval;
-    var bval;
+    cpr.AddPaths(subj, ClipperLib.PolyType.ptSubject, true);
+    cpr.AddPaths(clip, ClipperLib.PolyType.ptClip, true);
+    var solution = [];
+    var rc;
+    var typeMap = {
+      intersection: ClipperLib.ClipType.ctIntersection,
+      union: ClipperLib.ClipType.ctUnion,
+      difference: ClipperLib.ClipType.ctDifference,
+      xor: ClipperLib.ClipType.ctXor
+    };
+
+    rc = cpr.Execute(typeMap[op], solution);    
     
-    for (var i = 0; i < a.length; i++) {
-      aval = a[i];
-      bval = b[i];
-      switch (op) {
-        case 'not':
-          z.push(1-aval);
-          break;
-        case 'and':
-          z.push(aval & bval);
-          break;
-        case 'or':
-          z.push(aval | bval);
-      }
-    }
-    
-    return {data: z, pins: []};
+    return solution;
   },
   
   joinCells: function(layer, w, h, x, y, checkedCells) {
@@ -279,5 +374,27 @@ var extractor = {
       }
     }
     return layerGroups;
+  },
+  
+  polygonsToCanvas: function(polygons, canvas) {
+    polygons.forEach(function(p) {
+      var cpolypts = [];
+      p.forEach(function(pt){
+        cpolypts.push({x:pt.X, y:pt.Y});
+      });      
+      var cpoly = new fabric.Polygon(cpolypts, {fill: 'orange'});
+      canvas.add(cpoly);
+    });
+  },
+  
+  translatePoly: function(polygon, dx, dy) {
+    var result = [];
+    polygon.forEach(function(pt){
+      var newPt = {X: pt.X + dx, Y: pt.Y + dy};
+      result.push(newPt);
+    });
+    return result;
   }
+  
 };
+

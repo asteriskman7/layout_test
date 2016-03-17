@@ -1,8 +1,10 @@
 'use strict';
 
-/* globals extractor, simulator */
+/* globals extractor, simulator, fabric */
+
 
 console.log('init');
+var debug;
 
 function getLayoutData() {
   var layout = {
@@ -19,6 +21,21 @@ function getLayoutData() {
     }
   };
   return resizeAllLayers(layout, 33, 33);
+}
+
+function getShapesData() {
+  var shapes = {
+    layers: {
+      nwell: [{top: 120, left: 0, width: 90, height: 40}],
+      pwell: [{top: 30, left: 0, width: 90, height: 40}],
+      pc: [{top: 20, left: 40, width: 10, height: 150}],
+      v0: [{top: 40, left: 20, width: 10, height: 10}, {top: 50, left: 70, width: 10, height: 10}, {top: 90, left: 40, width: 10, height: 10}, {top: 130, left: 70, width: 10, height: 10}, {top: 140, left: 20, width: 10, height: 10}],
+      m1: [{top: 0, left: 0, width: 90, height: 10}, {top: 0, left: 20, width: 10, height: 50}, {top: 50, left: 70, width: 10, height: 90}, {top: 90, left: 0, width: 50, height: 10}, {top: 90, left: 70, width: 20, height: 10}, {top: 140, left: 20, width: 10, height: 50}, {top: 180, left: 0, width: 90, height: 10}],
+      v1: [{top: 0, left: 0, width: 10, height: 10}],
+      m2: [{top: 0, left: 0, width: 90, height: 10}]
+    }
+  };
+  return shapes;
 }
 
 function resizeLayer(layer, oldW, oldH, newW, newH) {
@@ -48,6 +65,46 @@ function resizeAllLayers(layoutData, newW, newH) {
   return layoutData;
 }
 
+var fjscanvas = new fabric.Canvas('canvas_layout');
+
+function drawLayoutShapes(shapesLayout) {
+  //var canvas = new fabric.Canvas('canvas_layout');
+  var canvas = fjscanvas;
+  
+  canvas.setZoom(2);
+  
+  var layerList = [
+    {name: 'pwell', type: 'normal', color: 'rgba(0,255,0,1)'},
+    {name: 'nwell', type: 'normal', color: 'rgba(255,255,0,1)'},
+    {name: 'pc', type: 'normal', color: 'rgba(255, 0, 255, 0.75)'},
+    {name: 'm1', type: 'normal', color: 'rgba(0, 0, 255, 0.75)'},
+    {name: 'v0', type: 'via', color: 'rgba(255, 255, 255, 1)'},
+    {name: 'm2', type: 'normal', color: 'rgba(255, 0, 0, 0.75)'},
+    {name: 'v1', type: 'via', color: 'rgba(255, 255, 0, 1)'},
+  ];  
+  
+  layerList.forEach(function(layerInfo) {
+    var layerData = shapesLayout.layers[layerInfo.name];
+    console.log('draw layer ' + layerInfo.name);
+    layerData.forEach(function(s) {      
+      //s.scaleX = 10;
+      //s.scaleY = 10;
+      s.fill = layerInfo.color;
+      //var stmp = {left: Math.random() * 100, top: Math.random() * 100, width: Math.random() * 100, height: Math.random() * 100, fill: s.fill};
+      //console.log(s);
+      var rect = new fabric.Rect(s);
+      canvas.add(rect);
+      /*
+      rect.animate('left', s.left, {duration: 1000, onChange: canvas.renderAll.bind(canvas), easing: fabric.util.ease.easeInOutQuad});
+      rect.animate('top', s.top, {duration: 1000, onChange: canvas.renderAll.bind(canvas), easing: fabric.util.ease.easeInOutQuad});
+      rect.animate('width', s.width, {duration: 1000, onChange: canvas.renderAll.bind(canvas), easing: fabric.util.ease.easeInOutQuad});
+      rect.animate('height', s.height, {duration: 1000, onChange: canvas.renderAll.bind(canvas), easing: fabric.util.ease.easeInOutQuad});
+    */
+    });
+  });
+}
+
+/*
 function drawLayout(ctx, canvasW, canvasH, layoutData, selection) {
   var gridSize = 15;
   var gridOriginX = 0;
@@ -175,7 +232,7 @@ function drawLayout(ctx, canvasW, canvasH, layoutData, selection) {
   ctx.restore();
   ctx.restore();
 }
-
+*/
 
 
 var canvas = document.getElementById('canvas_layout');
@@ -183,13 +240,15 @@ var ctx = canvas.getContext('2d');
 
 var layoutData = resizeAllLayers(getLayoutData(), 33, 33);
 
-var design = extractor.extract(layoutData);
+var shapesLayout = getShapesData();
 
-var selection = extractor.extractLayerGroups(layoutData.layers.m1.data, 33, 33);
+var design = extractor.extract(shapesLayout);
+
+//var selection = extractor.extractLayerGroups(layoutData.layers.m1.data, 33, 33);
 
 
 
-document.getElementById('button_redraw').onclick = function() {drawLayout(ctx, 500, 500, layoutData, []);};
+document.getElementById('button_redraw').onclick = function() {drawLayoutShapes(ctx, 500, 500, layoutData, []);};
 
 
 // latch
@@ -271,7 +330,8 @@ nets: ['a', 'b', 'vdd', 'gnd', 'z']
 };
 
 simulator.init(design);
-simulator.tick();
+//simulator.tick();
 
 //drawLayout(ctx, canvas.width, canvas.height, layoutData, []);
-drawLayout(ctx, 500, 500, layoutData, []);
+//drawLayout(ctx, 500, 500, layoutData, []);
+drawLayoutShapes(shapesLayout);
